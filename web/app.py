@@ -11,7 +11,6 @@ from pathlib import Path
 from datetime import datetime
 import pytz
 from models.config import ModelConfig
-from models.conversation_model import ConversationalBugSigModel
 from models.unified_qa import UnifiedQA
 from retrieve.data_retrieval import PubMedRetriever
 from utils.text_processing import AdvancedTextProcessor
@@ -253,50 +252,6 @@ async def ask_question(pmid: str, question: Question):
         print(f"Error in ask_question endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error answering question: {str(e)}")
 
-@app.post("/upload_paper")
-async def upload_paper(file: UploadFile = File(...), username: str = Form(None)):
-    """Upload a paper file (PDF or text) and extract information for curation"""
-    try:
-        # Check file type
-        if file.content_type not in ["application/pdf", "text/plain"]:
-            raise HTTPException(status_code=400, detail="Only PDF and text files are supported")
-        # Read file content
-        content = await file.read()
-        # Process the file based on type
-        if file.content_type == "application/pdf":
-            paper_content = {
-                "title": "Extracted from PDF",
-                "abstract": "Abstract would be extracted from the PDF",
-                "full_text": "Full text would be extracted from the PDF"
-            }
-        else:
-            text_content = content.decode("utf-8")
-            paper_content = {
-                "title": file.filename,
-                "abstract": text_content[:500] + "...",
-                "full_text": text_content
-            }
-        # Use QA system to analyze the paper
-        results = await qa_system.analyze_paper(paper_content)
-        analysis_results = results.get("gemini", {})
-        analysis_results["taxa"] = extract_taxa(paper_content["full_text"])
-        response = {
-            "metadata": {
-                "title": paper_content["title"],
-                "abstract": paper_content["abstract"],
-                "pmid": "",
-                "doi": "",
-                "publication_date": ""
-            },
-            "analysis": analysis_results
-        }
-        return response
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        print(f"Error processing uploaded file: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
-
 @app.get("/fetch_by_doi")
 async def fetch_by_doi(doi: str, request: Request):
     """Fetch paper by DOI for curation"""
@@ -325,31 +280,6 @@ async def fetch_by_doi(doi: str, request: Request):
     except Exception as e:
         print(f"Error fetching paper by DOI: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching paper: {str(e)}")
-
-@app.post("/submit_curation")
-async def submit_curation(request: Request):
-    """Submit paper curation to BugSigDB"""
-    try:
-        # Parse request body
-        data = await request.json()
-        
-        # Validate required fields
-        required_fields = ["pmid", "title", "host", "body_site", "condition", "sequencing_type"]
-        missing_fields = [field for field in required_fields if not data.get(field)]
-        if missing_fields:
-            raise HTTPException(status_code=400, detail=f"Missing required fields: {', '.join(missing_fields)}")
-        
-        # In a real implementation, this would submit to BugSigDB API
-        # For now, just log the submission
-        print(f"Curation submitted: {data}")
-        
-        # Return success response
-        return {"status": "success", "message": "Curation submitted successfully"}
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        print(f"Error submitting curation: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error submitting curation: {str(e)}")
 
 def extract_taxa(text):
     """Extract potential taxa from text"""
@@ -532,6 +462,7 @@ async def analyze_paper(pmid: str):
             }
             error = str(e)
 
+<<<<<<< Updated upstream
         # --- Curation status logic (CSV is source of truth) ---
         in_bugsigdb = False
         curated = False
@@ -549,6 +480,8 @@ async def analyze_paper(pmid: str):
                 curation_status_message = "This paper is ready for curation but not yet in BugSigDB."
             else:
                 curation_status_message = "This paper is not in BugSigDB and is not ready for curation. Missing required fields."
+=======
+>>>>>>> Stashed changes
         # Compose the response for the frontend
         response = {
             "pmid": pmid,
@@ -557,15 +490,11 @@ async def analyze_paper(pmid: str):
             "error": error,
             "warning": warning,
             "full_text_type": str(type(full_text)),
-            "in_bugsigdb": in_bugsigdb,
-            "curated": curated,
-            "curation_status_message": curation_status_message,
-            "missing_curation_fields": missing_fields,
         }
         # Ensure all expected fields are present
         expected_fields = [
             'pmid', 'title', 'authors', 'journal', 'year', 'host', 'body_site', 'condition',
-            'sequencing_type', 'in_bugsigdb', 'sample_size', 'taxa_level', 'statistical_method',
+            'sequencing_type', 'sample_size', 'taxa_level', 'statistical_method',
             'doi', 'publication_date', 'signature_probability'
         ]
         for field in expected_fields:
@@ -603,6 +532,7 @@ async def analyze_batch(pmids: list = Body(...), page: int = Query(1), page_size
             analysis = await qa_system.analyze_paper(paper_content)
         except Exception as e:
             analysis = {"has_signatures": False, "key_findings": [], "confidence": 0.0}
+<<<<<<< Updated upstream
         # 3. Enhanced curation criteria
         has_signature = analysis.get('has_signatures', False)
         has_citation = all(metadata.get(f) for f in ['title', 'authors', 'journal', 'year', 'doi'])
@@ -614,6 +544,58 @@ async def analyze_batch(pmids: list = Body(...), page: int = Query(1), page_size
             curation_status = "ready"
         else:
             curation_status = "not_ready"
+=======
+        # 3. Enhanced analysis criteria - focus on methods and LLM analysis
+        has_signature = analysis.get('has_signatures', False)
+        has_citation = all(metadata.get(f) for f in ['title', 'authors', 'journal', 'year', 'doi'])
+        
+        # More comprehensive microbiome keyword detection for methods
+        abstract = metadata.get('abstract', '').lower()
+        methods_keywords = [
+            # Sequencing and molecular methods
+            'microbiome', 'microbiota', 'microbial', 'bacteria', 'bacterial',
+            'dysbiosis', 'abundance', 'taxonomic', 'community', 'sequencing',
+            '16s', 'metagenomic', 'shotgun', 'amplicon', 'differential abundance',
+            'community composition', 'microbial signature',
+            
+            # Advanced sequencing methods
+            'metatranscriptomic', 'metaproteomic', 'metabolomic', 'single-cell',
+            'long-read', 'pacbio', 'oxford nanopore', 'illumina', 'ion torrent',
+            'pcr', 'rt-pcr', 'quantitative pcr', 'digital pcr',
+            
+            # Analytical methods
+            'alpha diversity', 'beta diversity', 'shannon', 'simpson', 'chao1',
+            'pcoa', 'nmds', 'pca', 'ordination', 'permanova', 'anosim',
+            'lefse', 'metastats', 'deseq2', 'edgeR', 'maaslin',
+            
+            # Statistical methods
+            'wilcoxon', 'mann-whitney', 'kruskal-wallis', 'anova', 't-test',
+            'correlation', 'regression', 'logistic regression', 'random forest',
+            'machine learning', 'clustering', 'hierarchical clustering',
+            
+            # Sample processing methods
+            'dna extraction', 'rna extraction', 'pcr amplification',
+            'library preparation', 'adapter ligation', 'size selection',
+            'quality control', 'quality filtering', 'chimera removal',
+            
+            # Bioinformatics methods
+            'qiime', 'mothur', 'usearch', 'vsearch', 'dada2', 'deblur',
+            'bwa', 'bowtie', 'bwa-mem', 'star', 'kallisto', 'salmon',
+            'kraken', 'metaphlan', 'humann', 'picrust', 'bugbase',
+            
+            # Experimental design methods
+            'randomized', 'controlled trial', 'case-control', 'cohort study',
+            'longitudinal', 'cross-sectional', 'intervention', 'treatment',
+            'placebo', 'blinded', 'double-blind', 'single-blind',
+            
+            # Sample collection methods
+            'swab', 'biopsy', 'aspiration', 'lavage', 'scraping',
+            'fecal collection', 'saliva collection', 'blood collection',
+            'tissue sampling', 'environmental sampling'
+        ]
+        has_methods_keyword = any(kw in abstract for kw in methods_keywords)
+        
+>>>>>>> Stashed changes
         # 4. Compose summary
         results.append({
             "pmid": pmid,
@@ -625,7 +607,6 @@ async def analyze_batch(pmids: list = Body(...), page: int = Query(1), page_size
             "host": metadata.get("host", ""),
             "body_site": metadata.get("body_site", ""),
             "sequencing_type": metadata.get("sequencing_type", ""),
-            "curation_status": curation_status,
             "key_findings": analysis.get("key_findings", []),
             "has_signature": has_signature,
             "has_microbiome_keyword": has_microbiome_keyword

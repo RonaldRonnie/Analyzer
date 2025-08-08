@@ -256,7 +256,7 @@ class GeminiQA:
             }
 
     async def analyze_paper(self, paper_content: Dict[str, str]) -> Dict[str, Union[str, float, Dict[str, float]]]:
-        """Analyze a paper using Gemini's advanced capabilities with detailed curation readiness assessment."""
+        """Analyze a paper using Gemini's advanced capabilities for microbial signature analysis."""
         try:
             # Prepare the prompt
             content = f"Title: {paper_content.get('title', '')}\n"
@@ -264,13 +264,18 @@ class GeminiQA:
             if paper_content.get('full_text'):
                 content += f"Full Text: {paper_content['full_text']}\n"
 
+<<<<<<< Updated upstream
             # Enhanced prompt for detailed curation analysis
             prompt = """You are an expert scientific curator specializing in microbial signature analysis for BugSigDB. Your task is to analyze this paper and provide a comprehensive assessment of its curation readiness.
+=======
+            # Enhanced prompt for scientific analysis
+            prompt = """You are an expert scientific analyst specializing in microbial signature analysis. Your task is to analyze this paper and provide a comprehensive assessment of its scientific findings related to microbial communities.
+>>>>>>> Stashed changes
 
-## COMPREHENSIVE CURATION READINESS CRITERIA
+## SCIENTIFIC ANALYSIS CRITERIA
 
-### GENERAL FACTORS (Applicable to ALL Study Types)
-A paper is READY FOR CURATION if it contains ALL of the following fundamental factors:
+### MICROBIAL SIGNATURE IDENTIFICATION
+A paper contains microbial signatures if it includes:
 
 1. **Specific Microbial Taxa Identification**
    - Explicit mentions of microbial names (e.g., Nocardiaceae, Bacteroides, phyla, genera, species)
@@ -280,12 +285,21 @@ A paper is READY FOR CURATION if it contains ALL of the following fundamental fa
    - Statements indicating significant increases, decreases, enrichment, depletion
    - Differences in overall community structure between groups/conditions
 
+<<<<<<< Updated upstream
 3. **Proper Experimental Design**
    - Clear description of study setup, experimental groups, control groups, and replication
+=======
+3. **Quantitative Data/Statistical Significance**
+   - P-values, fold-changes, relative abundances, diversity metrics, effect sizes, or other numerical data
+   - Appropriate statistical tests for the experimental design
+
+### METHODS ASSESSMENT
+>>>>>>> Stashed changes
 
 4. **Microbiota Characterization Methodology**
    - Details on how the microbial community was analyzed (e.g., 16S rRNA gene sequencing, metagenomics, metatranscriptomics)
 
+<<<<<<< Updated upstream
 5. **Quantitative Data/Statistical Significance**
    - P-values, fold-changes, relative abundances, diversity metrics, effect sizes, or other numerical data
 
@@ -382,6 +396,22 @@ Please provide a detailed analysis in the following structured format:
 [If NOT READY, explain exactly what's missing and provide examples of what would make it curatable]
 [If READY, explain what makes it suitable for curation - be specific about the microbial signatures found]
 
+=======
+5. **Statistical and Analytical Methods**
+   - Diversity analysis (alpha/beta diversity metrics)
+   - Differential abundance analysis tools
+   - Ordination methods (PCA, PCoA, NMDS)
+   - Machine learning approaches
+
+6. **Experimental Design Quality**
+   - Clear hypothesis and objectives
+   - Appropriate control groups
+   - Sample size calculations
+   - Replication and technical controls
+
+Please provide a detailed analysis in the following structured format:
+
+>>>>>>> Stashed changes
 **KEY FINDINGS:**
 [List the main scientific findings related to microbial signatures]
 
@@ -394,7 +424,7 @@ Please provide a detailed analysis in the following structured format:
 **EXAMPLES AND EVIDENCE:**
 [Provide specific examples from the text that support your assessment]
 
-CRITICAL: If the paper contains ANY specific microbial taxa identification, abundance data, or microbial community analysis, it should be marked as READY FOR CURATION. This includes environmental studies with health implications. Only mark as NOT READY if the paper completely lacks microbial data or is purely a review article."""
+Focus on identifying microbial signatures, differential abundance patterns, and scientific significance of the findings."""
 
             # Use Gemini API to generate the analysis
             model = genai.GenerativeModel(self.model)
@@ -412,8 +442,8 @@ CRITICAL: If the paper contains ANY specific microbial taxa identification, abun
 
             # Enhanced parsing of the response
             logger.info(f"Raw LLM response for debugging:\n{analysis_text}")
-            curation_analysis = self.parse_enhanced_analysis(analysis_text)
-            logger.info(f"Parsed curation analysis: {curation_analysis}")
+            analysis = self.parse_enhanced_analysis(analysis_text)
+            logger.info(f"Parsed analysis: {analysis}")
             
             # Parse the response for backward compatibility
             key_findings_raw = [line.strip() for line in analysis_text.split('\n') if line.strip()]
@@ -423,14 +453,14 @@ CRITICAL: If the paper contains ANY specific microbial taxa identification, abun
             found_terms = self.extract_found_terms(key_findings_raw)
 
             return {
-                "key_findings": findings,
-                "confidence": confidence,
+                "key_findings": analysis["key_findings"],
+                "confidence": analysis["confidence"],
                 "status": "success",
-                "suggested_topics": suggested_topics,
+                "suggested_topics": analysis["suggested_topics"],
                 "found_terms": found_terms,
                 "category_scores": category_scores,
                 "num_tokens": len(analysis_text.split()),
-                "curation_analysis": curation_analysis,  # New detailed curation analysis
+                "curation_analysis": analysis,  # Keep for backward compatibility
                 "raw_analysis": analysis_text  # Keep raw text for debugging
             }
         except Exception as e:
